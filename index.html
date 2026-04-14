@@ -273,22 +273,27 @@
       display: flex; flex-direction: column; gap: 6px;
       overflow-y: auto; flex: 1; max-height: 155px;
     }
-    .bc-item { display: flex; flex-direction: column; gap: 3px; font-size: 0.79rem; }
-    .bc-item-row { display: flex; gap: 8px; align-items: flex-start; }
+    .bc-item { display: flex; gap: 8px; align-items: flex-start; font-size: 0.79rem; }
     .bc-author { font-weight: 600; color: var(--accent); white-space: nowrap; }
     .bc-text { color: var(--text); flex: 1; line-height: 1.4; white-space: pre-wrap; word-break: break-word; }
     .bc-time { font-size: 0.67rem; color: var(--text-muted); white-space: nowrap; padding-top: 1px; }
-    .bc-reactions { display: flex; gap: 4px; flex-wrap: wrap; padding-left: 2px; }
-    .bc-react-btn {
-      background: var(--surface2); border: 1px solid var(--border); color: var(--text);
-      border-radius: 12px; padding: 1px 7px; font-size: 0.72rem; cursor: pointer;
-      display: flex; align-items: center; gap: 3px; transition: background 0.15s, border-color 0.15s;
-      line-height: 1.6;
+    #bcReactionPicker {
+      position: fixed; z-index: 9999; display: none;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 20px; padding: 5px 8px; gap: 3px; align-items: center;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.35);
     }
-    .bc-react-btn:hover { background: var(--surface); border-color: var(--accent); }
-    .bc-react-btn.active { background: color-mix(in srgb, var(--accent) 15%, var(--surface2)); border-color: var(--accent); }
-    .bc-react-count { font-size: 0.7rem; color: var(--text-muted); }
-    .bc-react-btn.active .bc-react-count { color: var(--accent); }
+    #bcReactionPicker.visible { display: flex; }
+    .bc-pick-btn {
+      background: none; border: 1px solid transparent; color: var(--text);
+      border-radius: 14px; padding: 2px 6px; font-size: 1rem; cursor: pointer;
+      display: flex; align-items: center; gap: 3px; transition: background 0.12s, border-color 0.12s;
+      line-height: 1.5;
+    }
+    .bc-pick-btn:hover { background: var(--surface2); border-color: var(--border); }
+    .bc-pick-btn.active { background: color-mix(in srgb, var(--accent) 15%, var(--surface2)); border-color: var(--accent); }
+    .bc-pick-count { font-size: 0.7rem; color: var(--text-muted); }
+    .bc-pick-btn.active .bc-pick-count { color: var(--accent); }
     .board-comments-input-row { display: flex; gap: 8px; align-items: flex-end; flex-shrink: 0; }
     .board-comment-input {
       flex: 1; background: var(--surface2); border: 1px solid var(--border);
@@ -394,6 +399,9 @@
     </div>
   </div>
 </div>
+
+<!-- Floating emoji reaction picker for board comments -->
+<div id="bcReactionPicker"></div>
 
 <!-- ══ CARD MODAL ════════════════════════════════════════ -->
 <div class="overlay hidden" id="cardOverlay">
@@ -1106,6 +1114,39 @@ function listenBoardComments() {
 
 const BC_EMOJIS = ['👍','👎','❗','❓','😮','🤔'];
 
+// ── Reaction picker (hover popup) ──────────────────────
+const bcPicker = document.getElementById('bcReactionPicker');
+let bcPickerTimeout = null;
+let bcPickerCommentId = null;
+
+function showBcPicker(commentId, itemEl) {
+  clearTimeout(bcPickerTimeout);
+  bcPickerCommentId = commentId;
+  const comment = boardComments.find(c => c.id === commentId);
+  const reactions = comment ? (comment.reactions || {}) : {};
+  const uid = me ? me.uid : null;
+  bcPicker.innerHTML = BC_EMOJIS.map(emoji => {
+    const users = reactions[emoji] || [];
+    const active = uid && users.includes(uid) ? ' active' : '';
+    const countHtml = users.length ? ` <span class="bc-pick-count">${users.length}</span>` : '';
+    return `<button class="bc-pick-btn${active}" onclick="toggleBoardReaction('${commentId}','${emoji}')">${emoji}${countHtml}</button>`;
+  }).join('');
+  const rect = itemEl.getBoundingClientRect();
+  bcPicker.style.left = rect.left + 'px';
+  bcPicker.style.top  = (rect.top - 46) + 'px';
+  bcPicker.classList.add('visible');
+}
+
+function hideBcPicker() {
+  bcPickerTimeout = setTimeout(() => {
+    bcPicker.classList.remove('visible');
+    bcPickerCommentId = null;
+  }, 180);
+}
+
+bcPicker.addEventListener('mouseenter', () => clearTimeout(bcPickerTimeout));
+bcPicker.addEventListener('mouseleave', hideBcPicker);
+
 function renderBoardComments() {
   const list  = document.getElementById('boardCommentsList');
   const count = document.getElementById('boardCommentsCount');
@@ -1115,25 +1156,14 @@ function renderBoardComments() {
     list.innerHTML = '<div style="font-size:0.78rem;color:var(--text-muted);padding:4px 0">No comments yet — be the first!</div>';
     return;
   }
-  const uid = me ? me.uid : null;
-  list.innerHTML = boardComments.map(c => {
-    const reactions = c.reactions || {};
-    const reactionBtns = BC_EMOJIS.map(emoji => {
-      const users = reactions[emoji] || [];
-      const active = uid && users.includes(uid) ? ' active' : '';
-      const countHtml = users.length ? ` <span class="bc-react-count">${users.length}</span>` : '';
-      return `<button class="bc-react-btn${active}" onclick="toggleBoardReaction('${c.id}','${emoji}')">${emoji}${countHtml}</button>`;
-    }).join('');
-    return `
-    <div class="bc-item">
-      <div class="bc-item-row">
-        <span class="bc-author">${esc(c.author)}</span>
-        <span class="bc-text">${esc(c.text)}</span>
-        <span class="bc-time">${timeAgo(c.createdAt)}</span>
-      </div>
-      <div class="bc-reactions">${reactionBtns}</div>
-    </div>`;
-  }).join('');
+  list.innerHTML = boardComments.map(c => `
+    <div class="bc-item"
+         onmouseenter="showBcPicker('${c.id}', this)"
+         onmouseleave="hideBcPicker()">
+      <span class="bc-author">${esc(c.author)}</span>
+      <span class="bc-text">${esc(c.text)}</span>
+      <span class="bc-time">${timeAgo(c.createdAt)}</span>
+    </div>`).join('');
   list.scrollTop = list.scrollHeight;
 }
 
