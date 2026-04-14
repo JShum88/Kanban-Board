@@ -294,6 +294,13 @@
     .bc-pick-btn.active { background: color-mix(in srgb, var(--accent) 15%, var(--surface2)); border-color: var(--accent); }
     .bc-pick-count { font-size: 0.7rem; color: var(--text-muted); }
     .bc-pick-btn.active .bc-pick-count { color: var(--accent); }
+    .bc-reaction-summary { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+    .bc-summary-pill {
+      font-size: 0.72rem; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 0px 5px; display: flex; align-items: center; gap: 2px;
+      color: var(--text-muted); line-height: 1.6;
+    }
+    .bc-summary-pill.mine { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface2)); }
     .board-comments-input-row { display: flex; gap: 8px; align-items: flex-end; flex-shrink: 0; }
     .board-comment-input {
       flex: 1; background: var(--surface2); border: 1px solid var(--border);
@@ -1156,14 +1163,27 @@ function renderBoardComments() {
     list.innerHTML = '<div style="font-size:0.78rem;color:var(--text-muted);padding:4px 0">No comments yet — be the first!</div>';
     return;
   }
-  list.innerHTML = boardComments.map(c => `
+  const uid = me ? me.uid : null;
+  list.innerHTML = boardComments.map(c => {
+    const reactions = c.reactions || {};
+    const pills = BC_EMOJIS
+      .filter(emoji => (reactions[emoji] || []).length > 0)
+      .map(emoji => {
+        const users = reactions[emoji];
+        const mine = uid && users.includes(uid) ? ' mine' : '';
+        return `<span class="bc-summary-pill${mine}">${emoji} ${users.length}</span>`;
+      }).join('');
+    const summaryHtml = pills ? `<span class="bc-reaction-summary">${pills}</span>` : '';
+    return `
     <div class="bc-item"
          onmouseenter="showBcPicker('${c.id}', this)"
          onmouseleave="hideBcPicker()">
       <span class="bc-author">${esc(c.author)}</span>
       <span class="bc-text">${esc(c.text)}</span>
+      ${summaryHtml}
       <span class="bc-time">${timeAgo(c.createdAt)}</span>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   list.scrollTop = list.scrollHeight;
 }
 
