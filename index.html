@@ -15,6 +15,19 @@
       --col-proposal: #7c3aed; --col-todo: #2563eb; --col-inprogress: #d97706; --col-completed: #16a34a;
       --p-critical: #ef4444; --p-high: #f97316; --p-medium: #eab308; --p-low: #22c55e;
     }
+    [data-theme="light"] {
+      --bg: #f1f5f9; --surface: #ffffff; --surface2: #f8fafc; --border: #e2e8f0;
+      --text: #0f172a; --text-muted: #64748b; --accent: #4f46e5; --accent-hover: #4338ca;
+    }
+
+    /* ── Theme toggle button ── */
+    .theme-toggle {
+      background: none; border: 1px solid var(--border); color: var(--text-muted);
+      cursor: pointer; font-size: 1rem; padding: 4px 8px; border-radius: 8px;
+      transition: color 0.15s, background 0.15s, border-color 0.15s; line-height: 1;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .theme-toggle:hover { color: var(--text); background: var(--surface2); border-color: var(--accent); }
     body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 
     /* ── Screens ── */
@@ -342,6 +355,7 @@
   <div class="boards-header">
     <h1>Kanban <span>Board</span></h1>
     <div style="position:relative;display:flex;align-items:center;gap:10px">
+      <button class="theme-toggle" id="bdsThemeToggle" title="Toggle light/dark mode">🌙</button>
       <span id="bdsUserName" style="font-size:0.84rem;color:var(--text-muted)"></span>
       <button class="user-avatar-btn" id="bdsAvatar"></button>
       <div class="user-menu hidden" id="bdsMenu">
@@ -367,6 +381,7 @@
     </div>
     <div class="board-header-right" style="position:relative">
       <span class="sync-dot" id="syncDot" title="Connecting…"></span>
+      <button class="theme-toggle" id="boardThemeToggle" title="Toggle light/dark mode">🌙</button>
       <button class="btn btn-ghost btn-sm" id="btnArchive">Archive</button>
       <button class="btn btn-ghost btn-sm" id="btnWip">WIP Limits</button>
       <button class="btn btn-ghost btn-sm" id="btnActivity">Activity</button>
@@ -569,6 +584,36 @@
 </div>
 
 <script>
+// ════════════════════════════════════════════════════════
+//  Theme (light / dark)
+// ════════════════════════════════════════════════════════
+(function () {
+  const saved = localStorage.getItem('kanban_theme') || 'dark';
+  if (saved === 'light') document.documentElement.setAttribute('data-theme', 'light');
+})();
+
+function getTheme()  { return document.documentElement.getAttribute('data-theme') || 'dark'; }
+function setTheme(t) {
+  if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+  else               document.documentElement.removeAttribute('data-theme');
+  localStorage.setItem('kanban_theme', t);
+  const icon = t === 'light' ? '☀️' : '🌙';
+  ['bdsThemeToggle','boardThemeToggle'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = icon;
+  });
+}
+function toggleTheme() { setTheme(getTheme() === 'dark' ? 'light' : 'dark'); }
+
+// Set correct icon on load
+document.addEventListener('DOMContentLoaded', () => {
+  const icon = getTheme() === 'light' ? '☀️' : '🌙';
+  ['bdsThemeToggle','boardThemeToggle'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.textContent = icon; el.onclick = toggleTheme; }
+  });
+});
+
 // ════════════════════════════════════════════════════════
 //  Firebase Config
 // ════════════════════════════════════════════════════════
